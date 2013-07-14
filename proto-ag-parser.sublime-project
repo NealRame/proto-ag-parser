@@ -1,0 +1,28 @@
+{
+	"folders":
+	[
+		{
+			"path": "/home/jux/Documents/development/proto-ag-parser",
+			"follow_symlinks": true,
+			"file_exclude_patterns":   [ "Makefile.depends", "proto-ag-parser.sublime-project", "tags", "*.o" ],
+		},
+	],
+	"settings":
+	{
+		"tab_size": 8,
+		"translate_tabs_to_spaces": false
+	},
+	"build_systems":
+	[
+		{
+			"name": "proto-ag-parser Debug",
+			"cmd": [ "make", "-C", "$project_path","depends", "debug" ],
+			"file_regex": "^(...*?):([0-9]*):?([0-9]*)"
+		},
+		{
+			"name": "proto-ag-parser Release",
+			"cmd": [ "make", "-C", "$project_path", "depends", "release" ],
+			"file_regex": "^(...*?):([0-9]*):?([0-9]*)"
+		}
+	]
+}
