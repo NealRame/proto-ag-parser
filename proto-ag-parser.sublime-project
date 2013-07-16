@@ -2,10 +2,10 @@
 	"folders":
 	[
 		{
-			"path": "/home/jux/Documents/development/proto-ag-parser",
+			"path": ".",
 			"follow_symlinks": true,
-			"file_exclude_patterns":   [ "Makefile.depends", "proto-ag-parser.sublime-project", "tags", "*.o" ],
-		},
+			"file_exclude_patterns": [ "Makefile.depends", "proto-ag-parser.sublime-project", "tags", "*.o" ]
+		}
 	],
 	"settings":
 	{

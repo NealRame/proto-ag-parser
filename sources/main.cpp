@@ -85,7 +85,6 @@ namespace parser {
 		qi::info what;
 	};
 
-
 	template <typename Iterator>
 	struct ColorGrammar : 
 		qi::grammar<Iterator, RGBA_Attr(), ascii::space_type>
@@ -95,24 +94,32 @@ namespace parser {
 			ok = (v >= 0 && v <= 1);
 		}
 
-		ColorGrammar() : ColorGrammar::base_type(color, "color declaration") {
+		ColorGrammar() : 
+			ColorGrammar::base_type(color, "color declaration") {
 			using qi::_val;
 			using qi::lit;
 			using qi::lexeme;
 			using qi::no_case;
-			using namespace qi::labels;
 			using boost::phoenix::at_c;
 			using boost::phoenix::construct;
 			using boost::phoenix::val;
+			using boost::phoenix::ref;
 
 			color.name("color declaration");
-			color %= hex_short_expr | hex_long_expr | rgb_expr | rgba_expr;
+			color %=
+				hex_short_expr 
+				| hex_long_expr 
+				| rgb_expr
+				| rgba_expr;
 
 			hex_long_expr.name("hexadecimal color constant");
 			hex_long_expr %=
 				no_case[
-					lexeme[ lit('#') 
-						>> hex2 >> hex2 >> hex2 >> default_alpha
+					lexeme[ lit('#')
+						>> hex2
+						>> hex2
+						>> hex2
+						>> default_alpha
 					]
 				];
 
@@ -120,7 +127,10 @@ namespace parser {
 			hex_short_expr %=
 				no_case[
 					lexeme[ lit('#')
-						>> hex1 >> hex1 >> hex1 >> default_alpha
+						>> hex1
+						>> hex1
+						>> hex1
+						>> default_alpha
 					]
 				];
 
@@ -161,11 +171,16 @@ namespace parser {
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> rgb_expr;
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> rgba_expr;
 	};
-
+	
 	template <typename Iterator>
-	bool parse_color(Iterator first, Iterator last, RGBA_Attr &value) {
+	bool parse_color(Iterator &first, Iterator last, RGBA_Attr &value) {
 		ColorGrammar<Iterator> grammar;
-		return qi::phrase_parse(first, last, grammar, ascii::space, value);
+
+		if (! qi::phrase_parse(first, last, grammar, ascii::space, value)) {
+			// find a solution to correctly report an error
+			return false;
+		}
+		return true;
 	}
 
 }  // namespace parser
@@ -184,9 +199,11 @@ int main(int argc, char **argv) {
 
 	{
 		std::ifstream in("./tests/test1.txt");
-		std::string s(readAll(in));
 		parser::RGBA_Attr value;
-		if (! parser::parse_color(s.begin(), s.end(), value)) {
+		std::string s(readAll(in));
+		std::string::iterator it = s.begin();
+
+		if (! parser::parse_color(it, s.end(), value)) {
 			std::cerr << "parse error" << std::endl;
 		} else {
 			PRINT_RGBA_ATTR(value);
@@ -195,9 +212,10 @@ int main(int argc, char **argv) {
 
 	{
 		std::ifstream in("./tests/test2.txt");
-		std::string s(readAll(in));
 		parser::RGBA_Attr value;
-		if (! parser::parse_color(s.begin(), s.end(), value)) {
+		std::string s(readAll(in));
+		std::string::iterator it = s.begin();
+		if (! parser::parse_color(it, s.end(), value)) {
 			std::cerr << "parse error" << std::endl;
 		} else {
 			PRINT_RGBA_ATTR(value);
@@ -206,9 +224,10 @@ int main(int argc, char **argv) {
 
 	{
 		std::ifstream in("./tests/test3.txt");
-		std::string s(readAll(in));
 		parser::RGBA_Attr value;
-		if (! parser::parse_color(s.begin(), s.end(), value)) {
+		std::string s(readAll(in));
+		std::string::iterator it = s.begin();
+		if (! parser::parse_color(it, s.end(), value)) {
 			std::cerr << "parse error" << std::endl;
 		} else {
 			PRINT_RGBA_ATTR(value);
@@ -217,9 +236,10 @@ int main(int argc, char **argv) {
 
 	{
 		std::ifstream in("./tests/test4.txt");
-		std::string s(readAll(in));
 		parser::RGBA_Attr value;
-		if (! parser::parse_color(s.begin(), s.end(), value)) {
+		std::string s(readAll(in));
+		std::string::iterator it = s.begin();
+		if (! parser::parse_color(it, s.end(), value)) {
 			std::cerr << "parse error" << std::endl;
 		} else {
 			PRINT_RGBA_ATTR(value);

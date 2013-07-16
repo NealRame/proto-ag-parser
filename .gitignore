@@ -11,3 +11,8 @@
 *.lai
 *.la
 *.a
+
+# Do not versioned those files too
+Debug
+Release
+Makefile.depends
