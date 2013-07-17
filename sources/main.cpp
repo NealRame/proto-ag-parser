@@ -43,24 +43,10 @@ namespace parser {
 
 	struct hex1_ : qi::symbols<char, double> {
 		hex1_() {
-			add
-				("0", 0)
-				("1", BYTE_TO_DOUBLE(0x11))
-				("2", BYTE_TO_DOUBLE(0x22))
-				("3", BYTE_TO_DOUBLE(0x33))
-				("4", BYTE_TO_DOUBLE(0x44))
-				("5", BYTE_TO_DOUBLE(0x55))
-				("6", BYTE_TO_DOUBLE(0x66))
-				("7", BYTE_TO_DOUBLE(0x77))
-				("8", BYTE_TO_DOUBLE(0x88))
-				("9", BYTE_TO_DOUBLE(0x99))
-				("a", BYTE_TO_DOUBLE(0xaa))
-				("b", BYTE_TO_DOUBLE(0xbb))
-				("c", BYTE_TO_DOUBLE(0xcc))
-				("d", BYTE_TO_DOUBLE(0xdd))
-				("e", BYTE_TO_DOUBLE(0xee))
-				("f", BYTE_TO_DOUBLE(0xff))
-			;
+			for (unsigned int i=0; i<=0x0f; ++i) {
+				add((boost::format("%1x") % i).str(),
+					BYTE_TO_DOUBLE((i << 4) + i));
+			}
 		}
 	} hex1;
 
@@ -100,7 +86,6 @@ namespace parser {
 
 			color.name("color");
 			color %= hex_expr | rgb_expr | rgba_expr;
-
 
 			hex_expr.name("hexadecimal color constant");
 			hex_expr %= // hex_long_expr must be check before hex_short_expr
