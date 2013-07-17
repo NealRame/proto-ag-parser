@@ -1,1 +1,12 @@
 #123
+#888
+#AaA
+#7f7f7f
+#sokldjf
+#bad455
+rgb(0.1,
+ 0.234,      
+                 0.66)
+rgb(0.1, 234, 0.66)
+rgba(0.6, 0.5, 0.3, 0.5)
+lkdjg(lfdk odkg opg)

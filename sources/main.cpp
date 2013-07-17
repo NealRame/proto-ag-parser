@@ -33,11 +33,13 @@ std::string readAll(std::istream &in) {
 
 namespace parser {
 #	define BYTE_TO_DOUBLE(VALUE) \
-		static_cast<double>(VALUE)/std::numeric_limits<unsigned char>::max()
+		static_cast<double>((unsigned char)(VALUE))/std::numeric_limits<unsigned char>::max()
 
 	using namespace boost::spirit;
 
-	typedef boost::tuple<double, double, double, double> RGBA_Attr;	
+	typedef boost::tuple<double, double, double, double> RGBA_Attr;
+	typedef boost::tuple<RGBA_Attr, double> GradientStop_Attr;
+	typedef std::vector<GradientStop_Attr> Gradient_Attr;
 
 	struct hex1_ : qi::symbols<char, double> {
 		hex1_() {
@@ -71,117 +73,145 @@ namespace parser {
 		}
 	} hex2;
 
-	template <typename Iterator> 
-	struct ParseError {
-		typedef Iterator iterator;
-
-		ParseError(Iterator f, Iterator l, Iterator p, qi::info w) :
-			first(f), last(l), error_pos(p), what(w) { 
-		}
-
-		Iterator first;
-		Iterator last;
-		Iterator error_pos;
-		qi::info what;
-	};
-
 	template <typename Iterator>
 	struct ColorGrammar : 
 		qi::grammar<Iterator, RGBA_Attr(), ascii::space_type>
 	{
-		static void RGB_check_component(
-				double const &v, qi::unused_type, bool &ok) {
-			ok = (v >= 0 && v <= 1);
+		static bool parse(Iterator &first, Iterator last, RGBA_Attr &value) {
+			ColorGrammar<Iterator> grammar;
+			if (! qi::phrase_parse(first, last, grammar, ascii::space, value)) {
+				// find a solution to correctly report an error
+				return false;
+			}
+			return true;
 		}
 
 		ColorGrammar() : 
-			ColorGrammar::base_type(color, "color declaration") {
+			ColorGrammar::base_type(color, "color") {
 			using qi::_val;
-			using qi::lit;
+			using qi::attr;
 			using qi::lexeme;
+			using qi::lit;
 			using qi::no_case;
 			using boost::phoenix::at_c;
 			using boost::phoenix::construct;
 			using boost::phoenix::val;
 			using boost::phoenix::ref;
 
-			color.name("color declaration");
-			color %=
-				hex_short_expr 
-				| hex_long_expr 
-				| rgb_expr
-				| rgba_expr;
+			color.name("color");
+			color %= hex_expr | rgb_expr | rgba_expr;
 
-			hex_long_expr.name("hexadecimal color constant");
+
+			hex_expr.name("hexadecimal color constant");
+			hex_expr %= // hex_long_expr must be check before hex_short_expr
+				hex_long_expr | hex_short_expr;
+
+			hex_long_expr.name("hexadecimal color constant (long form)");
 			hex_long_expr %=
 				no_case[
 					lexeme[ lit('#')
-						>> hex2
-						>> hex2
-						>> hex2
-						>> default_alpha
+						>> (hex2)
+						>> (hex2)
+						>> (hex2)
+						>> attr(1.0)
 					]
 				];
 
-			hex_short_expr.name("hexadecimal color constant");
+			hex_short_expr.name("hexadecimal color constant (short form)");
 			hex_short_expr %=
 				no_case[
 					lexeme[ lit('#')
 						>> hex1
 						>> hex1
 						>> hex1
-						>> default_alpha
+						>> attr(1.0)
 					]
 				];
 
-			rgb_expr.name("RGB color expression");
+			rgb_expr.name("RGB color");
 			rgb_expr %=
 				no_case[
 					lit("rgb") >> lit('(')
-					>> double_ [RGB_check_component]
+					>> double_ [check_RGBA_component]
 					>> lit(',')
-					>> double_ [RGB_check_component]
+					>> double_ [check_RGBA_component]
 					>> lit(',')
-					>> double_ [RGB_check_component]
-					>> default_alpha // see default_alpha definition
+					>> double_ [check_RGBA_component]
 					>> lit(')')
+					>> attr(1.0)
 				];
 
-			rgba_expr.name("RGB color expression");
-			rgba_expr =
+			rgba_expr.name("RGBA color");
+			rgba_expr %=
 				no_case[
-					lit("rgb") >> lit('(')
-					>> double_ [RGB_check_component]
+					lit("rgba") >> lit('(')
+					>> double_ [check_RGBA_component]
 					>> lit(',')
-					>> double_ [RGB_check_component]
+					>> double_ [check_RGBA_component]
 					>> lit(',')
-					>> double_ [RGB_check_component]
+					>> double_ [check_RGBA_component]
 					>> lit(',')
-					>> double_ [RGB_check_component]
+					>> double_ [check_RGBA_component]
 					>> lit(')')
 				];
-
-			default_alpha = eps [_val = 1];
 		}
 		
-		qi::rule<Iterator, double()> default_alpha;
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> color;
+		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> hex_expr;
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> hex_long_expr;
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> hex_short_expr;
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> rgb_expr;
 		qi::rule<Iterator, RGBA_Attr(), ascii::space_type> rgba_expr;
-	};
-	
-	template <typename Iterator>
-	bool parse_color(Iterator &first, Iterator last, RGBA_Attr &value) {
-		ColorGrammar<Iterator> grammar;
 
-		if (! qi::phrase_parse(first, last, grammar, ascii::space, value)) {
-			// find a solution to correctly report an error
-			return false;
+	private:
+		static void check_RGBA_component(
+			double const &v, qi::unused_type, bool &ok) {
+			ok = (v >= 0 && v <= 1);
 		}
-		return true;
-	}
+	};
+
+	template <typename Iterator>
+	struct GradientGrammar :
+		qi::grammar<Iterator, Gradient_Attr(), ascii::space_type>
+	{
+		static bool parse(Iterator &first, Iterator last, Gradient_Attr &value) {
+			GradientGrammar<Iterator> grammar;
+			if (! qi::phrase_parse(first, last, grammar, ascii::space, value)) {
+				// find a solution to correctly report an error
+				return false;
+			}
+			return true;
+		}
+
+		GradientGrammar() :
+			GradientGrammar::base_type(gradient, "gradient") {
+			using qi::lexeme;
+			using qi::lit;
+			using qi::no_case;
+
+			gradient %=
+				no_case[
+					lit("gradient") 
+					>> lit('(') 
+					>> gradient_stop % lit(',') 
+					>> lit(')')
+				];
+
+			gradient_stop %=
+				color_grammar.color >> double_[check_stop_offset];
+
+		}
+
+		ColorGrammar<Iterator> color_grammar;
+		qi::rule<Iterator, Gradient_Attr(), ascii::space_type> gradient;
+		qi::rule<Iterator, GradientStop_Attr(), ascii::space_type> gradient_stop;
+
+	private:
+		static void check_stop_offset(
+			double const &v, qi::unused_type, bool &ok) {
+			ok = (v >= 0 && v <= 1);
+		}
+	};
 
 }  // namespace parser
 
@@ -195,54 +225,56 @@ namespace parser {
 		<< std::endl; \
 } while (0)
 
+#define PRINT_GRADIENT_ATTR(GRADIENT) \
+do { \
+	std::cout << "---" << std::endl; \
+	for (const parser::GradientStop_Attr &gradient_stop : (GRADIENT)) { \
+		std::cout << gradient_stop.get<1>() << ": "; \
+		parser::RGBA_Attr color = gradient_stop.get<0>(); \
+		PRINT_RGBA_ATTR(color); \
+	} \
+	std::cout << "---" << std::endl; \
+} while (false)
+
 int main(int argc, char **argv) {
-
+	// COLOR PARSE TEST
 	{
+		std::cout << "COLOR PARSE TEST" << std::endl;
+
 		std::ifstream in("./tests/test1.txt");
-		parser::RGBA_Attr value;
 		std::string s(readAll(in));
-		std::string::iterator it = s.begin();
+		std::string::iterator it = s.begin(), end = s.end();
 
-		if (! parser::parse_color(it, s.end(), value)) {
-			std::cerr << "parse error" << std::endl;
-		} else {
-			PRINT_RGBA_ATTR(value);
+		while (it != end) {
+			parser::RGBA_Attr value;
+			if (! parser::ColorGrammar<std::string::iterator>::parse(it, s.end(), value)) {
+				std::cerr << "parse error" << std::endl;
+				while (it != end && *it != '\n') {
+					++it;
+				}
+			} else {
+				PRINT_RGBA_ATTR(value);
+			}
 		}
 	}
 
+	// GRADIENT PARSE TEST
 	{
+		std::cout << "GRADIENT PARSE TEST" << std::endl;
 		std::ifstream in("./tests/test2.txt");
-		parser::RGBA_Attr value;
 		std::string s(readAll(in));
-		std::string::iterator it = s.begin();
-		if (! parser::parse_color(it, s.end(), value)) {
-			std::cerr << "parse error" << std::endl;
-		} else {
-			PRINT_RGBA_ATTR(value);
-		}
-	}
+		std::string::iterator it = s.begin(), end = s.end();
 
-	{
-		std::ifstream in("./tests/test3.txt");
-		parser::RGBA_Attr value;
-		std::string s(readAll(in));
-		std::string::iterator it = s.begin();
-		if (! parser::parse_color(it, s.end(), value)) {
-			std::cerr << "parse error" << std::endl;
-		} else {
-			PRINT_RGBA_ATTR(value);
-		}
-	}
-
-	{
-		std::ifstream in("./tests/test4.txt");
-		parser::RGBA_Attr value;
-		std::string s(readAll(in));
-		std::string::iterator it = s.begin();
-		if (! parser::parse_color(it, s.end(), value)) {
-			std::cerr << "parse error" << std::endl;
-		} else {
-			PRINT_RGBA_ATTR(value);
+		while (it != end) {
+			parser::Gradient_Attr value;
+			if (! parser::GradientGrammar<std::string::iterator>::parse(it, s.end(), value)) {
+				std::cerr << "parse error" << std::endl;
+				while (it != end && *it != '\n') {
+					++it;
+				}
+			} else {
+				PRINT_GRADIENT_ATTR(value);
+			}
 		}
 	}
 
